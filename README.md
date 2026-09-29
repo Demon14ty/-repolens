@@ -1,4 +1,4 @@
-# 🔍 RepoLens: Explain This Repo Like a Senior
+# RepoLens: Explain This Repo Like a Senior
 
 > Understand unfamiliar GitHub repositories through source-cited explanations, progressive learning paths,
 > confusion maps, and first-contribution quests generated from the repository itself.
