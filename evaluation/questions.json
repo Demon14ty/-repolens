@@ -1,0 +1,72 @@
+[
+  {
+    "repository": "https://github.com/miguelgrinberg/microblog",
+    "expected_framework": "Flask",
+    "expected_entry_point": "microblog.py",
+    "questions": [
+      {
+        "question": "Where is the Flask application created?",
+        "expected_sources": ["app/__init__.py"],
+        "expected_concepts": ["Flask", "application factory", "create_app"]
+      },
+      {
+        "question": "Where are users and posts defined?",
+        "expected_sources": ["app/models.py"],
+        "expected_concepts": ["SQLAlchemy models", "User", "Post"]
+      }
+    ]
+  },
+  {
+    "repository": "https://github.com/streamlit/streamlit-example",
+    "expected_framework": "Streamlit",
+    "expected_entry_point": "streamlit_app.py",
+    "questions": [
+      {
+        "question": "Which file draws the page?",
+        "expected_sources": ["streamlit_app.py"],
+        "expected_concepts": ["Streamlit script runs top to bottom"]
+      }
+    ]
+  },
+  {
+    "repository": "https://github.com/fastapi/full-stack-fastapi-template",
+    "expected_framework": "FastAPI",
+    "expected_entry_point": "backend/app/main.py",
+    "questions": [
+      {
+        "question": "Where is user login handled?",
+        "expected_sources": ["backend/app/api/routes/login.py"],
+        "expected_concepts": ["route handler", "access token"]
+      },
+      {
+        "question": "Where are database operations for users?",
+        "expected_sources": ["backend/app/crud.py"],
+        "expected_concepts": ["CRUD", "SQLModel session"]
+      }
+    ]
+  },
+  {
+    "repository": "https://github.com/wsvincent/lithium",
+    "expected_framework": "Django",
+    "expected_entry_point": "manage.py",
+    "questions": [
+      {
+        "question": "Where is the custom user model?",
+        "expected_sources": ["accounts/models.py"],
+        "expected_concepts": ["Django model", "AbstractUser"]
+      }
+    ]
+  },
+  {
+    "repository": "https://github.com/kennethreitz/records",
+    "expected_framework": "Python CLI / script",
+    "expected_entry_point": "records.py",
+    "questions": [
+      {
+        "question": "Where does the command-line interface start?",
+        "expected_sources": ["records.py"],
+        "expected_concepts": ["cli()", "__main__ guard"]
+      }
+    ]
+  }
+]
