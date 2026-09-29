@@ -48,9 +48,6 @@ st.markdown(
 
       /* Hero */
       .hero {text-align:center; padding:2.5rem 0 1.25rem;}
-      .hero-badge {display:inline-block; font-size:.75rem; letter-spacing:.12em; text-transform:uppercase;
-        padding:.3rem .8rem; border-radius:999px; border:1px solid rgba(139,92,246,.45);
-        background:rgba(139,92,246,.12); color:#C4B5FD;}
       .hero h1 {font-size:3.4rem !important; font-weight:700; margin:.6rem 0 .2rem; padding:0 !important;
         background:linear-gradient(90deg,#A78BFA 0%,#22D3EE 50%,#A78BFA 100%); background-size:200% auto;
         -webkit-background-clip:text; background-clip:text; color:transparent;
@@ -156,7 +153,6 @@ def render_header() -> None:
     st.markdown(
         """
         <div class="hero">
-          <span class="hero-badge">🔍 Python repos · source-cited</span>
           <h1>RepoLens</h1>
           <div class="hero-tag">Explain This Repo Like a Senior</div>
           <p class="hero-sub">Paste a public GitHub repository. RepoLens tells you where to start,
