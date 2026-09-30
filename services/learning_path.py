@@ -71,7 +71,7 @@ def build_learning_path(
         return []
 
     ordered: list[str] = []
-    readme = _find_root_readme(insights)
+    readme = find_root_readme(insights)
     if readme:
         ordered.append(readme)
 
@@ -127,7 +127,7 @@ def _limit_per_category(paths: list[str], insights: dict[str, FileInsight]) -> l
     return kept
 
 
-def _find_root_readme(insights: dict[str, FileInsight]) -> str | None:
+def find_root_readme(insights: dict[str, FileInsight]) -> str | None:
     for path in insights:
         if depth(path) == 0 and basename(path).lower().startswith("readme"):
             return path

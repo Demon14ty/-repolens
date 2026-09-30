@@ -8,6 +8,7 @@ them between reruns.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +208,117 @@ class Quest:
     evidence: list[str] = field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------
+# First 30 Minutes mode
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class FirstThirtyStep:
+    """One file in the short "first 30 minutes" reading plan."""
+
+    number: int
+    path: str
+    category: str
+    minutes: int
+    difficulty_label: str  # "Beginner" | "Intermediate" | "Advanced"
+    why: str
+    look_for: str
+    outcome: str
+    evidence: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FirstThirtyPlan:
+    steps: list[FirstThirtyStep]
+    total_minutes: int
+    outcomes: list[str]  # "What you should understand after 30 minutes"
+    is_limited: bool = False  # too little source material for a full plan
+
+
+# ---------------------------------------------------------------------------
+# README quality
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ReadmeCheck:
+    """One rubric line of the README Onboarding Score."""
+
+    key: str
+    label: str
+    max_points: int
+    points: int = 0
+    evidence: list[str] = field(default_factory=list)  # headings / snippets that earned the points
+    suggestion: str = ""  # what to add when the check fails
+
+    @property
+    def passed(self) -> bool:
+        return self.points > 0
+
+
+@dataclass
+class ReadmeQuality:
+    path: str | None
+    score: int  # 0-100, heuristic
+    label: str  # "Needs major improvement" | "Basic onboarding" | "Good onboarding" | "Excellent onboarding"
+    interpretation: str
+    checks: list[ReadmeCheck]
+    notes: list[str] = field(default_factory=list)
+
+    @property
+    def strengths(self) -> list[ReadmeCheck]:
+        return [check for check in self.checks if check.passed]
+
+    @property
+    def missing(self) -> list[ReadmeCheck]:
+        return [check for check in self.checks if not check.passed]
+
+
+# ---------------------------------------------------------------------------
+# Ask RepoLens (deterministic Q&A)
+# ---------------------------------------------------------------------------
+
+
+class QuestionIntent(str, Enum):
+    ENTRY_POINT = "entry_point"
+    FRAMEWORK = "framework"
+    DEPENDENCIES = "dependencies"
+    TESTS = "tests"
+    DATABASE = "database"
+    READ_FIRST = "read_first"
+    RUN = "run"
+    ROUTES = "routes"
+    UI = "ui"
+    CODE_FLOW = "code_flow"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class Citation:
+    """A file and an inclusive 1-based line range in the analysed repository."""
+
+    path: str
+    start_line: int
+    end_line: int
+
+    @property
+    def display(self) -> str:
+        if self.start_line == self.end_line:
+            return f"`{self.path}` (line {self.start_line})"
+        return f"`{self.path}` (lines {self.start_line}–{self.end_line})"
+
+
+@dataclass
+class QAAnswer:
+    question: str
+    intent: QuestionIntent
+    answer: str
+    confidence: str  # "High" | "Medium" | "Low" | "No reliable answer"
+    citations: list[Citation] = field(default_factory=list)
+    limitations: str = ""
+
+
 @dataclass
 class RepoAnalysis:
     metadata: RepoMetadata
@@ -224,6 +336,9 @@ class RepoAnalysis:
     estimated_minutes: int
     notes: list[str] = field(default_factory=list)  # e.g. "tree truncated"
     tree_paths: list[str] = field(default_factory=list)
+    file_contents: dict[str, str] = field(default_factory=dict)  # downloaded text files (README, configs, code)
+    readme_quality: ReadmeQuality | None = None
+    first_30_minutes: FirstThirtyPlan | None = None
 
     def importers_of(self, path: str) -> list[str]:
         """Internal files that import `path` (useful for a future impact simulator)."""

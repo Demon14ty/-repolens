@@ -14,9 +14,11 @@ import json
 import streamlit as st
 from dotenv import load_dotenv
 
-from models.repo_models import LearningStep, Quest, RepoAnalysis
+from models.repo_models import FirstThirtyPlan, LearningStep, QAAnswer, Quest, ReadmeQuality, RepoAnalysis
 from services.github_service import GitHubClient, GitHubError, fetch_snapshot, github_token
+from services.first_30_minutes import LIMITED_NOTICE
 from services.llm_service import AIGuide, LLMError, build_llm_context, llm_api_key, request_guide, validate_guide
+from services.qa_engine import NO_ANSWER, PRESET_QUESTIONS, answer_question, validate_answer
 from services.repo_analyzer import analyze_snapshot, choose_files_to_download
 from utils.github_parser import InvalidGitHubURL, parse_github_url
 
@@ -30,6 +32,9 @@ EXAMPLE_REPOS = (
     "https://github.com/miguelgrinberg/microblog",
     "https://github.com/streamlit/streamlit-example",
 )
+CONFIDENCE_COLORS = {"High": "green", "Medium": "orange", "Low": "red", NO_ANSWER: "gray"}
+README_LABEL_ICONS = {"Needs major improvement": "🔴", "Basic onboarding": "🟠", "Good onboarding": "🟢",
+                      "Excellent onboarding": "🌟"}
 
 st.set_page_config(page_title="RepoLens", page_icon="🔍", layout="centered")
 st.markdown(
@@ -132,6 +137,8 @@ def init_state() -> None:
     st.session_state.setdefault("repository_url", "")
     st.session_state.setdefault("analysis_result", None)
     st.session_state.setdefault("completed_steps", {})  # repo full name -> list of step numbers
+    st.session_state.setdefault("first30_completed", {})  # repo full name -> list of 30-minute step numbers
+    st.session_state.setdefault("qa_question", {})  # repo full name -> last question asked
 
 
 def completed_for(repo: str) -> set[int]:
@@ -142,6 +149,20 @@ def toggle_step(repo: str, number: int) -> None:
     done = completed_for(repo)
     done.symmetric_difference_update({number})
     st.session_state.completed_steps[repo] = sorted(done)
+
+
+def first30_completed_for(repo: str) -> set[int]:
+    return set(st.session_state.first30_completed.get(repo, []))
+
+
+def toggle_first30_step(repo: str, number: int) -> None:
+    done = first30_completed_for(repo)
+    done.symmetric_difference_update({number})
+    st.session_state.first30_completed[repo] = sorted(done)
+
+
+def set_question(repo: str, question: str) -> None:
+    st.session_state.qa_question[repo] = question
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +231,111 @@ def render_overview(analysis: RepoAnalysis, ai: AIGuide | None) -> None:
         with st.container(border=True):
             st.markdown("**🧑‍🏫 Senior's summary** (AI-written from RepoLens evidence)")
             st.write(ai.overview)
+
+
+def render_readme_quality(quality: ReadmeQuality | None) -> None:
+    st.header("📘 README Quality Checker")
+    if quality is None:
+        st.info("RepoLens could not evaluate the README for this repository.")
+        return
+    icon = README_LABEL_ICONS.get(quality.label, "")
+    cols = st.columns([2, 3])
+    cols[0].metric("README Onboarding Score", f"{quality.score} / 100")
+    with cols[1]:
+        st.markdown(f"**{icon} {quality.label}**")
+        st.progress(quality.score / 100)
+    st.caption("Heuristic estimate based on detectable README sections — not an AI opinion. Points are only given "
+               "when a section has real content or a recognisable command/link.")
+    st.write(quality.interpretation)
+    for note in quality.notes:
+        st.info(note)
+
+    if quality.strengths:
+        st.markdown("**Strengths**")
+        for check in quality.strengths:
+            st.markdown(f"✓ {check.label} (+{check.points})")
+    if quality.missing:
+        st.markdown("**Missing or weak**")
+        for check in quality.missing:
+            st.markdown(f"⚠ {check.label.replace(' found', '').replace(' is referenced', '')} — not detected "
+                        f"(0 / {check.max_points})")
+        st.markdown("**Suggested improvements**")
+        st.markdown("\n".join(f"{i}. {check.suggestion}" for i, check in enumerate(quality.missing, start=1)))
+
+    evidence = [(check.label, item) for check in quality.strengths for item in check.evidence]
+    if evidence:
+        with st.expander("Evidence RepoLens found in the README"):
+            for label, item in evidence:
+                st.markdown(f"- **{label}:** {item}")
+
+
+def render_first_30(analysis: RepoAnalysis) -> None:
+    st.header("🎯 First 30 Minutes")
+    plan: FirstThirtyPlan | None = analysis.first_30_minutes
+    if plan is None or not plan.steps:
+        st.info("RepoLens could not find enough analysed files to build a First 30 Minutes plan.")
+        return
+    st.caption("A short, focused reading plan: the few files that explain most of this repository. "
+               "Skim for the big picture — details can wait.")
+    if plan.is_limited:
+        st.info(LIMITED_NOTICE)
+
+    repo = analysis.metadata.full_name
+    done = first30_completed_for(repo) & {s.number for s in plan.steps}
+    cols = st.columns(2)
+    cols[0].metric("Total estimated time", f"~{plan.total_minutes} min")
+    cols[1].metric("Files to read", len(plan.steps))
+    st.progress(len(done) / len(plan.steps), text=f"{len(done)} of {len(plan.steps)} steps completed")
+
+    for step in plan.steps:
+        title = f"{'✅' if step.number in done else '📄'} Step {step.number} — {step.path}"
+        with st.expander(title, expanded=step.number == min(set(range(1, len(plan.steps) + 1)) - done, default=0)):
+            st.markdown(f"**Category:** {step.category.replace('_', ' ')} · **Estimated time:** {step.minutes} "
+                        f"minutes · **Difficulty:** {step.difficulty_label}")
+            st.markdown(f"**Why this matters:** {step.why}")
+            st.markdown(f"**Look for:** {step.look_for}")
+            st.markdown(f"**After this step, you should understand:** {step.outcome}")
+            st.caption("Sources: " + ", ".join(f"`{e}`" for e in step.evidence))
+            st.checkbox("Mark as completed", value=step.number in done, key=f"f30::{repo}::{step.number}",
+                        on_change=toggle_first30_step, args=(repo, step.number))
+
+    if plan.outcomes:
+        with st.container(border=True):
+            st.markdown("**What you should understand after 30 minutes**")
+            st.markdown("\n".join(f"✓ {outcome}  " for outcome in plan.outcomes))
+
+
+def render_ask(analysis: RepoAnalysis) -> None:
+    st.header("💬 Ask RepoLens")
+    st.caption("Deterministic, rule-based answers built only from what RepoLens analysed — no AI guessing. "
+               "Every source is checked against the analysed files and line ranges.")
+    repo = analysis.metadata.full_name
+
+    cols = st.columns(2)
+    for index, question in enumerate(PRESET_QUESTIONS):
+        cols[index % 2].button(question, key=f"qa_preset::{index}", use_container_width=True,
+                               on_click=set_question, args=(repo, question))
+
+    with st.form("ask_form"):
+        custom = st.text_input("Or type your own question", placeholder="e.g. Where are the API endpoints?")
+        if st.form_submit_button("Ask") and custom.strip():
+            set_question(repo, custom.strip())
+
+    question = st.session_state.qa_question.get(repo)
+    if question:
+        render_answer(validate_answer(answer_question(question, analysis), analysis))
+
+
+def render_answer(answer: QAAnswer) -> None:
+    with st.container(border=True):
+        st.markdown(f"**Q:** {answer.question}")
+        st.markdown(answer.answer)
+        color = CONFIDENCE_COLORS.get(answer.confidence, "gray")
+        st.markdown(f":{color}-background[**Confidence: {answer.confidence}**]")
+        if answer.citations:
+            st.markdown("**Sources:**\n" + "\n".join(f"- {c.display}" for c in answer.citations))
+        if answer.limitations:
+            st.caption(f"ℹ️ {answer.limitations}")
 
 
 def render_learning_path(analysis: RepoAnalysis, ai: AIGuide | None) -> None:
@@ -371,14 +497,34 @@ def main() -> None:
             ai, ai_error = get_ai_guide(analysis)
 
     render_notes(analysis, ai_error, ai)
-    render_overview(analysis, ai)
+    # Tabs only re-render the cached analysis; switching tabs never calls GitHub again.
     if not analysis.python_files:
-        return  # the notes above already explain why there is nothing more to show
-    render_learning_path(analysis, ai)
-    render_flow(analysis)
-    render_confusion_map(analysis)
-    render_skip(analysis)
-    render_quest(analysis.quest, ai)
+        # The notes above explain why there is no learning path; README and Q&A still help.
+        overview_tab, ask_tab = st.tabs(["📋 Overview", "💬 Ask RepoLens"])
+        with overview_tab:
+            render_overview(analysis, ai)
+            render_readme_quality(analysis.readme_quality)
+        with ask_tab:
+            render_ask(analysis)
+        return
+
+    overview_tab, path_tab, map_tab, quest_tab, ask_tab = st.tabs(
+        ["📋 Overview", "🧭 Learning Path", "🗺️ Code Map", "🛠️ First Quest", "💬 Ask RepoLens"]
+    )
+    with overview_tab:
+        render_overview(analysis, ai)
+        render_readme_quality(analysis.readme_quality)
+    with path_tab:
+        render_first_30(analysis)
+        render_learning_path(analysis, ai)
+    with map_tab:
+        render_flow(analysis)
+        render_confusion_map(analysis)
+        render_skip(analysis)
+    with quest_tab:
+        render_quest(analysis.quest, ai)
+    with ask_tab:
+        render_ask(analysis)
 
 
 main()

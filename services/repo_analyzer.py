@@ -14,9 +14,11 @@ from models.repo_models import FileInsight, FrameworkResult, PythonFileInfo, Rep
 from services.challenge_generator import generate_quest
 from services.code_flow import build_flow
 from services.file_classifier import classify_file, is_test_path
+from services.first_30_minutes import build_first_30_minutes
 from services.framework_detector import collect_dependencies, detect_framework, is_dependency_file
 from services.learning_path import build_confusion_map, build_learning_path, build_skip_list
 from services.python_analyzer import analyze_python_source
+from services.readme_quality import evaluate_readme, find_readme
 from utils.helpers import basename, depth, module_names_for_path, path_parts
 from utils.scoring import (
     ENTRY_POINT_NAMES,
@@ -208,7 +210,8 @@ def analyze_snapshot(snapshot: RepoSnapshot) -> RepoAnalysis:
     if not dependency_map:
         notes.append("No dependency file (requirements.txt, pyproject.toml, Pipfile) was found.")
 
-    return RepoAnalysis(
+    readme_path, readme_downloaded = find_readme(files, tree_paths)
+    analysis = RepoAnalysis(
         metadata=snapshot.metadata,
         framework=framework,
         dependencies=dependencies,
@@ -224,7 +227,11 @@ def analyze_snapshot(snapshot: RepoSnapshot) -> RepoAnalysis:
         estimated_minutes=sum(step.minutes for step in learning_path),
         notes=notes,
         tree_paths=tree_paths,
+        file_contents=dict(files),
+        readme_quality=evaluate_readme(readme_path, files.get(readme_path) if readme_downloaded else None),
     )
+    analysis.first_30_minutes = build_first_30_minutes(analysis)
+    return analysis
 
 
 def _score_files(
