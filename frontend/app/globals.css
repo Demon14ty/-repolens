@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/*
+ * RepoLens design tokens. Dark by default: near-black charcoal surfaces,
+ * warm off-white text, muted slate secondary text and one restrained accent.
+ * Status hues are desaturated so they read as information, not alarms.
+ */
+@theme {
+  --color-bg: #0c0d0f;
+  --color-surface: #121418;
+  --color-raised: #171a1f;
+  --color-line: #23272e;
+  --color-line-strong: #323741;
+
+  --color-fg: #ebe8e2;
+  --color-muted: #a2a8b2;
+  --color-faint: #747a85;
+
+  --color-accent: #8c9bff;
+  --color-accent-strong: #a9b4ff;
+  --color-accent-soft: rgb(140 155 255 / 0.1);
+
+  --color-teal: #5cc4b0;
+  --color-teal-soft: rgb(92 196 176 / 0.1);
+  --color-amber: #d8b05e;
+  --color-amber-soft: rgb(216 176 94 / 0.1);
+  --color-rose: #c58b93;
+  --color-rose-soft: rgb(197 139 147 / 0.1);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --radius-card: 12px;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--color-bg);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgb(140 155 255 / 0.3);
+}
+
+/* One consistent, clearly visible keyboard focus style. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Thin scrollbars for horizontally scrolling navigation and code previews. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+@keyframes rl-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.rl-pulse {
+  animation: rl-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

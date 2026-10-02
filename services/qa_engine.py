@@ -712,7 +712,7 @@ def _answer_read_first(facts: _Facts) -> QAAnswer:
     text = f"Start with {_code(shown[0])}"
     if len(shown) > 1:
         text += ", then " + human_join([_code(p) for p in shown[1:]])
-    text += ". This follows RepoLens's 🎯 First 30 Minutes plan (README → dependencies → entry point → core logic)."
+    text += ". This follows RepoLens's First 30 Minutes plan (README → dependencies → entry point → core logic)."
     citations = []
     for path in shown:
         if path in facts.analysis.entry_points[:1]:

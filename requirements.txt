@@ -1,4 +1,6 @@
-streamlit>=1.40
+# Runtime dependencies for the RepoLens API (installed by Vercel for the Python function).
+fastapi>=0.115
+uvicorn>=0.30
 requests>=2.31
 anthropic>=1.8
 python-dotenv>=1.0

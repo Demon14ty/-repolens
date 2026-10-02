@@ -26,6 +26,7 @@ class RepoMetadata:
     language: str
     default_branch: str
     html_url: str
+    license: str = ""  # SPDX id or name reported by GitHub, "" when none
 
 
 @dataclass

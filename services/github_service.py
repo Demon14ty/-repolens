@@ -38,6 +38,18 @@ class EmptyRepositoryError(GitHubError):
     pass
 
 
+class GitHubNetworkError(GitHubError):
+    """GitHub could not be reached at all (DNS, timeout, connection reset)."""
+
+
+class GitHubAuthError(GitHubError):
+    """The configured GITHUB_TOKEN was rejected."""
+
+
+class AccessDeniedError(GitHubError):
+    """GitHub refused access for a reason other than rate limiting."""
+
+
 def github_token() -> str:
     """Optional token from the environment. Public repos work without one."""
     return os.getenv("GITHUB_TOKEN", "").strip()
@@ -62,7 +74,7 @@ class GitHubClient:
         try:
             response = self.session.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
         except requests.RequestException as exc:
-            raise GitHubError(
+            raise GitHubNetworkError(
                 "Could not reach GitHub. Check your internet connection and try again."
             ) from exc
         return response
@@ -86,6 +98,7 @@ class GitHubClient:
             language=data.get("language") or "Unknown",
             default_branch=data.get("default_branch") or "main",
             html_url=data.get("html_url") or f"https://github.com/{owner}/{repo}",
+            license=_license_name(data.get("license")),
         )
 
     def get_tree(self, owner: str, repo: str, branch: str) -> tuple[list[TreeEntry], bool]:
@@ -118,6 +131,16 @@ class GitHubClient:
             return {path: text for path, text in zip(paths, texts) if text is not None}
 
 
+def _license_name(data: object) -> str:
+    """GitHub's license object -> "MIT"; "" when there is none or GitHub could not identify it."""
+    if not isinstance(data, dict):
+        return ""
+    spdx = data.get("spdx_id") or ""
+    if spdx and spdx != "NOASSERTION":
+        return spdx
+    return data.get("name") or ""
+
+
 def _error_for_response(response: requests.Response) -> GitHubError:
     """Translate an HTTP error into a friendly, specific exception."""
     status = response.status_code
@@ -140,11 +163,11 @@ def _error_for_response(response: requests.Response) -> GitHubError:
             "Private repositories are not supported unless your GITHUB_TOKEN can access them."
         )
     if status == 401:
-        return GitHubError("GitHub rejected the GITHUB_TOKEN in your .env file. Check that it is valid.")
+        return GitHubAuthError("GitHub rejected the GITHUB_TOKEN in your .env file. Check that it is valid.")
     if status == 409:
         return EmptyRepositoryError("This repository is empty, so there is nothing to analyse yet.")
     if status == 403:
-        return GitHubError("GitHub refused access to this repository (HTTP 403).")
+        return AccessDeniedError("GitHub refused access to this repository (HTTP 403).")
     return GitHubError(f"GitHub returned an unexpected error (HTTP {status}). Please try again later.")
 
 
