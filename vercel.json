@@ -12,7 +12,7 @@
       "functions": {
         "api/index.py": {
           "maxDuration": 60,
-          "excludeFiles": "{frontend/**,tests/**,evaluation/**,.venv/**,.devcontainer/**,.streamlit/**,**/__pycache__/**}"
+          "excludeFiles": "{frontend/**,tests/**,evaluation/**,.venv/**,.devcontainer/**,**/__pycache__/**}"
         }
       }
     }

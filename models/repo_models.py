@@ -1,8 +1,7 @@
 """Plain data containers shared by every part of RepoLens.
 
 Dataclasses are used (instead of dicts) so that each piece of analysis has a
-clear, documented shape. They are also picklable, which lets Streamlit cache
-them between reruns.
+clear, documented shape. They are also picklable, so they can be cached.
 """
 
 from __future__ import annotations

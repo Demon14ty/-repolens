@@ -1,6 +1,3 @@
 -r requirements.txt
 pytest>=8.0
 httpx>=0.27  # FastAPI's TestClient
-# The original Streamlit UI (app.py) is kept for local use and its smoke test.
-# It is not needed by the API, so it stays out of the Vercel function bundle.
-streamlit>=1.40

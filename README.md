@@ -67,7 +67,6 @@ services/                   Repository analysis (unchanged pipeline, reused by b
 └── llm_service.py          Optional: one Claude call + citation validation
 models/repo_models.py       Dataclasses shared by everything
 utils/                      URL parsing, scoring rules, path helpers
-app.py                      The original Streamlit UI (kept for local use)
 tests/                      Unit and API tests (no network)
 evaluation/                 Real-repository evaluation script
 vercel.json                 Vercel Services config: Next.js at /, FastAPI at /api/*
@@ -83,7 +82,7 @@ Design decisions:
    evidence, learning steps or the quest, is validated against the files RepoLens actually analysed. Anything
    that doesn't verify is dropped, never shown.
 4. **The API adds no analysis logic.** `api/` only parses requests, calls `services/`, and serialises the
-   results, so the Streamlit app and the web app give identical results.
+   results. All analysis lives in `services/`, where it is unit tested without a server.
 
 ## Local development
 
@@ -120,17 +119,6 @@ Open http://localhost:3000 and try `https://github.com/miguelgrinberg/microblog`
 During `npm run dev`, the browser calls the API at `http://localhost:8000` directly. The API allows that
 origin through CORS by default (only `http://localhost:3000` and `http://127.0.0.1:3000`). To allow other
 origins, set `FRONTEND_ORIGIN` (comma-separated).
-
-### Legacy Streamlit UI
-
-The original Streamlit app still works and uses the same services:
-
-```powershell
-pip install -r requirements-dev.txt   # includes streamlit
-streamlit run app.py
-```
-
-Streamlit is intentionally **not** in `requirements.txt`, which keeps it out of the Vercel Python function.
 
 ## Environment variables
 
@@ -195,7 +183,7 @@ python -m pytest
 
 The tests cover URL parsing, AST analysis, dependency parsing, framework detection, file classification,
 scoring, import resolution, learning paths, the First 30 Minutes plan, README scoring, Q&A and citation
-validation, the AI citation checks, GitHub error messages, the Streamlit UI smoke test, the beginner score,
+validation, the AI citation checks, GitHub error messages, the beginner score,
 and the HTTP API (`tests/test_api.py`): health, invalid/non-GitHub URLs, mocked success, mocked rate limits
 and other GitHub errors, partial/unsupported status, Q&A with valid citations, unsupported questions,
 cache-miss re-analysis, CORS configuration, and a check that responses never contain secret values. No test
@@ -219,7 +207,7 @@ The repository deploys as **one Vercel project** using
 
 - `web`: the Next.js app in `frontend/`, serving every path except `/api/*`
 - `api`: the FastAPI app (`api.index:app`) from the repository root, serving `/api/*` as one Python
-  function. It installs the root `requirements.txt`, which does not include Streamlit.
+  function. It installs the root `requirements.txt`.
 
 Because both share a domain, the browser calls relative `/api/...` paths and no CORS setup is needed.
 
@@ -256,8 +244,7 @@ Steps:
 
 **Fallback (two projects)**: if Services is unavailable on your account, create two Vercel projects from the
 same repository. Use one with Root Directory `frontend` (Next.js) and one with Root Directory `./` for the API
-(add `[tool.vercel] entrypoint = "api.index:app"` to a root `pyproject.toml` so Vercel doesn't pick up the
-Streamlit `app.py`). Remove the `services`/`rewrites` from `vercel.json`, set `NEXT_PUBLIC_API_BASE_URL` on the
+(add `[tool.vercel] entrypoint = "api.index:app"` to a root `pyproject.toml` so Vercel finds the app). Remove the `services`/`rewrites` from `vercel.json`, set `NEXT_PUBLIC_API_BASE_URL` on the
 frontend project to the API project's URL, and set `FRONTEND_ORIGIN` on the API project to the frontend's URL.
 
 ## Limitations
